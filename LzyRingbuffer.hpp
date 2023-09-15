@@ -22,6 +22,10 @@ namespace Lzy::Ringbuffer {
 		// better to be multiple ex of 2;
 		Array(size_t size) : buffer(size) {
 		}
+		Array(const Array& another) : buffer(another.buffer), in_index(another.in_index), out_index(another.out_index) {
+		}
+		Array(Array&& another) : buffer(std::move(another.buffer)), in_index(another.in_index), out_index(another.out_index) {
+		}
 		bool isEmpty() const noexcept {
 			return in_index == out_index;
 		}
