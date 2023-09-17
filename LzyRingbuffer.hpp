@@ -10,7 +10,7 @@
 #include <cassert>
 
 namespace Lzy::Ringbuffer {
-	
+
 	// if Array push much faster than pop, this will not work
 	template<typename T>
 	struct Array {
@@ -36,41 +36,33 @@ namespace Lzy::Ringbuffer {
 			return in_index - out_index;
 		}
 
-		bool push(std::ranges::range auto&& array_ref) {
-			size_t booking_size = array_ref.size();
+	private:
+		uint64_t book_space(uint64_t booking_size) {
+			assert(booking_size <= unused_size() && "Must check unused_size before push");
 			uint64_t index = in_index;
-			if (unused_size() < booking_size) {
-				return false;
-			};
 			in_index = (index + booking_size) % buffer.size();
-
-			auto left_size = (std::min<size_t>)(booking_size, buffer.size() - index);
+			return index;
+		}
+	public:
+		void push(std::ranges::range auto&& array_ref) {
+			auto index = book_space(array_ref.size());
+			auto left_size = (std::min<size_t>)(array_ref.size(), buffer.size() - index);
 
 			std::move(array_ref.begin(), array_ref.begin() + left_size, buffer.begin() + index);
 			std::move(array_ref.begin() + left_size, array_ref.end(), buffer.begin());
-
-			return true;
 		}
 
-		bool push(std::same_as<T> auto&&... array_ref) {
-			size_t booking_size = sizeof...(array_ref);
-			uint64_t index = in_index;
-			if (unused_size() < booking_size) {
-				return false;
-			};
-			in_index = (index + booking_size) % buffer.size();
-
-			auto left_size = (std::min<size_t>)(booking_size, buffer.size() - index);
+		void push(std::same_as<T> auto&&... array_ref) {
+			auto index = book_space(sizeof...(array_ref));
+			auto left_size = (std::min<size_t>)(sizeof...(array_ref), buffer.size() - index);
 
 			(..., (*(buffer.begin() + (index++) % buffer.size()) = std::move(array_ref)));
-
-			return true;
 		}
 
 
 		// must check if empty before work
 		T& pop() {
-			assert(!isEmpty() && "Must check is empty before pop");
+			assert(!isEmpty() && "Must check isEmpty before pop");
 			uint64_t index = out_index;
 			out_index = (index + 1) % buffer.size();
 			return buffer[index];
@@ -90,6 +82,15 @@ namespace Lzy::Ringbuffer {
 
 			return results;
 		}
+		void wait() {
+			uint64_t index = in_index;
+			in_index.wait(index);
+		}
+		void notify() {
+			in_index.notify_one();
+		}
+
+
 	};
 
 }
