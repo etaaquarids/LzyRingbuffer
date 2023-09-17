@@ -26,13 +26,13 @@ namespace Lzy::Ringbuffer {
 		}
 		Array(Array&& another) : buffer(std::move(another.buffer)), in_index(another.in_index.load()), out_index(another.out_index.load()) {
 		}
-		bool isEmpty() const noexcept {
+		bool empty() const noexcept {
 			return in_index == out_index;
 		}
-		uint64_t unused_size() {
-			return buffer.size() - (in_index - out_index);
+		uint64_t unused_size() const noexcept {
+			return buffer.size() - size();
 		}
-		uint64_t size() {
+		uint64_t size() const noexcept {
 			return in_index - out_index;
 		}
 
@@ -43,6 +43,7 @@ namespace Lzy::Ringbuffer {
 			in_index = (index + booking_size) % buffer.size();
 			return index;
 		}
+
 	public:
 		void push(std::ranges::range auto&& array_ref) {
 			auto index = book_space(array_ref.size());
@@ -62,7 +63,7 @@ namespace Lzy::Ringbuffer {
 
 		// must check if empty before work
 		T& pop() {
-			assert(!isEmpty() && "Must check isEmpty before pop");
+			assert(!empty() && "Must check if empty before pop");
 			uint64_t index = out_index;
 			out_index = (index + 1) % buffer.size();
 			return buffer[index];
@@ -82,12 +83,15 @@ namespace Lzy::Ringbuffer {
 
 			return results;
 		}
-		void wait() {
+		void wait() const {
 			uint64_t index = in_index;
 			in_index.wait(index);
 		}
-		void notify() {
+		void notify_one() noexcept {
 			in_index.notify_one();
+		}
+		void notify_all() noexcept {
+			in_index.notify_all();
 		}
 
 
